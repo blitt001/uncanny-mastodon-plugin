@@ -65,7 +65,7 @@ class Mastodon_Publish_Post extends \Uncanny_Automator\Recipe\Action {
                     'label'       => 'Message',
                     'placeholder' => 'The context of the image or description.', 'uncanny-automator',
                     'input_type'  => 'textarea',
-					'required'    => true,
+					'required'    => false,
             	)
 			),
         );
