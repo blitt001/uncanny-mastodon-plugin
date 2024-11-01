@@ -2,7 +2,7 @@
 
 /*
 Plugin Name: Uncanny Automator - Custom Mastodon Integration
-Plugin URI: https://github.com/Uncanny-Mastodon-Plugin
+Plugin URI: https://github.com/blitt001/uncanny-mastodon-plugin
 Description: A custom plugin to add Mastodon support for Uncanny Automator.
 Version: 1.0
 Author: Jeroen van Blitterswijk
