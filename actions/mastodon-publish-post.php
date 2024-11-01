@@ -79,43 +79,51 @@ class Mastodon_Publish_Post extends \Uncanny_Automator\Recipe\Action {
 	 * @param array $args
 	 * @param $parsed
 	 */
-	protected function process_action( $user_id, $action_data, $recipe_id, $args, $parsed ) {
-
+	protected function process_action($user_id, $action_data, $recipe_id, $args, $parsed) {
 		$action_meta = $action_data['meta'];
-
 		$helpers = new Mastodon_Helpers();
-
-		// read URL and API as configured
-		$mastodon_url = get_option( 'mastodon_url', false );
-        $api_key = get_option( 'mastodon_api_key', false );
-
-		// sanitize fields
-		$media = sanitize_text_field( Automator()->parse->text( $action_meta['MASTODON_PUBLISH_PHOTO_IMAGE_ID'], $recipe_id, $user_id, $args ) );
-		$message = sanitize_textarea_field( ( Automator()->parse->text( $action_meta['MASTODON_PUBLISH_MESSAGE'], $recipe_id, $user_id, $args ) ) );
-
+	
+		// Retrieve and validate Mastodon URL and API key
+		$mastodon_url = get_option('mastodon_url', false);
+		$api_key = get_option('mastodon_api_key', false);
+	
+		if (!$mastodon_url || !$api_key) {
+			$action_data['complete_with_errors'] = true;
+			Automator()->complete_action($user_id, $action_data, $recipe_id, 'Missing Mastodon URL or API key.');
+			return;
+		}
+	
+		// Sanitize fields
+		$media = sanitize_text_field(Automator()->parse->text($action_meta['MASTODON_PUBLISH_PHOTO_IMAGE_ID'], $recipe_id, $user_id, $args));
+		$message = sanitize_textarea_field(Automator()->parse->text($action_meta['MASTODON_PUBLISH_MESSAGE'], $recipe_id, $user_id, $args));
+	
+		// Truncate message to 500 characters if needed
 		if (strlen($message) > 500) {
-			// Truncate the string to the specified limit
 			$message = substr($message, 0, 496) . '...';
 		}
 	
 		try {
+			// Attempt to post media to Mastodon
 			$media_id = $helpers->post_media_to_mastodon($media, $mastodon_url, $api_key);
+			
+			if ($media_id === false) {
+				$media_id = 0;
+			}
+	
+			// Post the message with the media
 			$post_id = $helpers->post_message_to_mastodon($message, $media_id, $mastodon_url, $api_key);
-			
-			if ($post_id === 0) {
+			if ($post_id === false) {
 				$action_data['complete_with_errors'] = true;
-				Automator()->complete_action( $user_id, $action_data, $recipe_id, 'Post did fail' );
+				Automator()->complete_action($user_id, $action_data, $recipe_id, 'Failed to post message to Mastodon.');
+			} else {
+				// Mark action as completed successfully
+				Automator()->complete_action($user_id, $action_data, $recipe_id);
 			}
-			else
-			{
-				Automator()->complete_action( $user_id, $action_data, $recipe_id);
-			}
-			
 		} catch (Exception $e) {
+			// Log any unexpected errors and mark the action as incomplete
 			$action_data['complete_with_errors'] = true;
-
-			Automator()->complete_action( $user_id, $action_data, $recipe_id, $e->getMessage() );
+			Automator()->complete_action($user_id, $action_data, $recipe_id, 'An error occurred: ' . $e->getMessage());
 		}
-    }
-
+	}
+	
 }

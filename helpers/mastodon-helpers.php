@@ -34,85 +34,127 @@ class Mastodon_Helpers {
     }
 
     public function post_media_to_mastodon($image_path, $mastodon_url, $api_key) {
-
+        // Retrieve image data
         $image_data = wp_remote_get($this->removeQueryParameters($image_path), [
             'blocking' => true
         ]);
-
+    
+        // Check if the request returned a WP error
         if (is_wp_error($image_data)) {
-            error_log( 'Image download error: ' . $image_data->get_error_message());
+            error_log('Image download error: ' . $image_data->get_error_message());
+            return false;
         }
-        // Prepare the file for upload
-        
+    
+        // Check for HTTP status code errors in the image download
+        $response_code = wp_remote_retrieve_response_code($image_data);
+        if ($response_code < 200 || $response_code >= 300) {
+            error_log('Image download failed with HTTP status code: ' . $response_code);
+            return false;
+        }
+    
+        // Prepare the image data for base64 encoding
         $image_body = wp_remote_retrieve_body($image_data);
-        $mime_type = wp_remote_retrieve_header($image_data, 'content-type');
-        
-        if (!$mime_type) {
-            $mime_type = 'image/jpeg'; // default fallback
-        }
-                
-        $filename = basename(parse_url($image_path, PHP_URL_PATH));
-
+        $mime_type = wp_remote_retrieve_header($image_data, 'content-type') ?: 'image/jpeg'; // fallback MIME type
         $base64_image_body = base64_encode($image_body);
-
+    
         // Prepare headers for Mastodon API
         $headers = [
             'Authorization' => 'Bearer ' . $api_key,
-            'Content-Type' => 'application/json'
+            'Content-Type'  => 'application/json'
         ];
-
-        // Prepare body
+    
+        // Create JSON body with base64-encoded image data
         $body = json_encode([
             'file' => 'data:' . $mime_type . ';base64,' . $base64_image_body
         ]);
-
+    
         // Send the base64-encoded image upload request to Mastodon
         $upload_response = wp_remote_post($mastodon_url . '/api/v2/media', [
             'headers' => $headers,
-            'body' => $body
+            'body'    => $body
         ]);
-
+    
+        // Check if the request returned a WP error
         if (is_wp_error($upload_response)) {
             error_log('Mastodon upload error: ' . $upload_response->get_error_message());
+            return false;
         }
-
-        // Parse the response to get the media ID
-        $upload_body = json_decode(wp_remote_retrieve_body($upload_response));
-
-        $media_id = isset( $upload_body->id ) ? $upload_body->id : 0;
-
+    
+        // Check for HTTP status code errors in the upload response
+        $upload_response_code = wp_remote_retrieve_response_code($upload_response);
+        if ($upload_response_code < 200 || $upload_response_code >= 300) {
+            error_log('Mastodon upload failed with HTTP status code: ' . $upload_response_code);
+            return false;
+        }
+    
+        // Decode the response body
+        $upload_body = json_decode(wp_remote_retrieve_body($upload_response), true);
+    
+        // Check for JSON decode errors
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log('Mastodon upload error: Unable to decode JSON response - ' . json_last_error_msg());
+            return false;
+        }
+    
+        // Check if the response contains an ID for the media
+        $media_id = isset($upload_body['id']) ? $upload_body['id'] : 0;
+    
         if ($media_id === 0) {
-            error_log('No media ID received from Mastodon');
+            error_log('Mastodon upload error: No media ID returned in response.');
+            return false;
         }
-
+    
+        // Return the media ID if everything is successful
         return $media_id;
     }
-
-    public function post_message_to_mastodon($message, $media_id, $mastodon_url, $api_key) {
         
-        // Prepare headers for Mastodon API
-        $data = array(
-			'status' => $message,
-		);
-
+    
+    public function post_message_to_mastodon($message, $media_id, $mastodon_url, $api_key) {
+        // Prepare the data for posting the status
+        $data = [
+            'status' => $message
+        ];
+    
         if ($media_id > 0) {
-            $data['media_ids[]'] = $media_id;
+            $data['media_ids'] = [$media_id]; // Set media_ids as an array
         }
     
+        // Prepare headers for Mastodon API
+        $headers = [
+            'Authorization' => 'Bearer ' . $api_key,
+            'Content-Type'  => 'application/json'
+        ];
+    
         // Post the status with the media
-        $response = wp_remote_post( $mastodon_url . '/api/v1/statuses', array(
-            'headers' => array(
-                'Authorization' => 'Bearer ' . $api_key,
-            ),
-            'body'    => $data,
-        ));
+        $response = wp_remote_post($mastodon_url . '/api/v1/statuses', [
+            'headers' => $headers,
+            'body'    => json_encode($data)
+        ]);
     
-        $response_data = json_decode( wp_remote_retrieve_body( $response ), true );
-
-        $post_id = isset( $response_data->id ) ? $response_data->id : 0;
-        
-        return $post_id;
-
+        // Check if the request returned a WP error
+        if (is_wp_error($response)) {
+            error_log('Mastodon post error: ' . $response->get_error_message());
+            return false;
+        }
+    
+        // Check for HTTP status code errors
+        $response_code = wp_remote_retrieve_response_code($response);
+        if ($response_code < 200 || $response_code >= 300) {
+            error_log('Mastodon post failed with HTTP status code: ' . $response_code);
+            return false;
+        }
+    
+        // Decode the response body
+        $response_data = json_decode(wp_remote_retrieve_body($response), true);
+    
+        // Check if the response contains an ID for the post
+        if (!isset($response_data['id'])) {
+            error_log('Mastodon post error: No post ID returned in response.');
+            return false;
+        }
+    
+        // Return the post ID if everything is successful
+        return $response_data['id'];
     }
-    
+        
 }
