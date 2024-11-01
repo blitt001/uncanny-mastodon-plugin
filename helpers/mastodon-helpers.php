@@ -35,6 +35,9 @@ class Mastodon_Helpers {
 
     public function post_media_to_mastodon($image_path, $mastodon_url, $api_key) {
         // Retrieve image data
+
+        $image_path = $this->resolve_image_url($image_path);
+
         $image_data = wp_remote_get($this->removeQueryParameters($image_path), [
             'blocking' => true
         ]);
@@ -156,5 +159,17 @@ class Mastodon_Helpers {
         // Return the post ID if everything is successful
         return $response_data['id'];
     }
+
+	/**
+	 * Resolves the image URL.
+	 *
+	 * @param mixed $image The public image URL or the Media Library ID.
+	 *
+	 * @return string The URL of the image or false if its failing.
+	 */
+	private function resolve_image_url( $media = '' ) {
+		return is_numeric( $media ) ? wp_get_attachment_url( $media ) : $media;
+	}
+
         
 }

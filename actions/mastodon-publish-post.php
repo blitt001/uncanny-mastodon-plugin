@@ -94,9 +94,9 @@ class Mastodon_Publish_Post extends \Uncanny_Automator\Recipe\Action {
 		}
 	
 		// Sanitize fields
-		$media = sanitize_text_field(Automator()->parse->text($action_meta['MASTODON_PUBLISH_PHOTO_IMAGE_ID'], $recipe_id, $user_id, $args));
-		$message = sanitize_textarea_field(Automator()->parse->text($action_meta['MASTODON_PUBLISH_MESSAGE'], $recipe_id, $user_id, $args));
-	
+		$media = isset($action_meta['MASTODON_PUBLISH_PHOTO_IMAGE_ID']) ? sanitize_text_field(Automator()->parse->text($action_meta['MASTODON_PUBLISH_PHOTO_IMAGE_ID'], $recipe_id, $user_id, $args)) : 0;
+		$message = isset($action_meta['MASTODON_PUBLISH_MESSAGE']) ? sanitize_textarea_field(Automator()->parse->text($action_meta['MASTODON_PUBLISH_MESSAGE'], $recipe_id, $user_id, $args)) : '';
+
 		// Truncate message to 500 characters if needed
 		if (strlen($message) > 500) {
 			$message = substr($message, 0, 496) . '...';
