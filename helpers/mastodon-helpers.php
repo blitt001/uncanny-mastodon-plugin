@@ -7,7 +7,7 @@ class Mastodon_Helpers {
 
 		$accounts[] = array(
 			'value' => '1',
-			'text' => 'Mastodon Account Jeroen',
+			'text' => 'Mastodon Account',
 		);
 
 		return $accounts;
